@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NavikEye KML Downloader(Google)</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyANk3tu4ZdMIouDeze4BPsMJGmsDtnBmnM&libraries=places"></script>
+</head>
+<body onload="initMap()">
+    <h1>NavikEye KML Downloader(Google)</h1>
+    <br><br>
+    <div class="container">
+        <div class="form-group">
+            <input type="text" class="form-control" placeholder="Source Location" id="source">
+        </div>
+        <div class="form-group">
+            <input type="text" class="form-control" placeholder="Destination Location" id="dest">
+        </div>
+        <button onclick="calcRoute()" class="btn btn-primary">Get Directions</button>
+        <button onclick="downloadKML()" class="btn btn-secondary" style="margin-top: 10px;">Download KML</button>
+        <input type="file" id="file" class="form-control" style="margin-top: 10px;" />
+        <div id="map" style="height:500px;width:100%;"></div>
+    </div>
+</body>
+
+<script>
+    let map, directionsService, directionsRenderer;
+    let sourceAutocomplete, destAutocomplete;
+    let routeCoordinates = [];
+    let polyline;
+
+    function initMap() {
+        // Initialize the map with a clear center and zoom level
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: 13.19864, lng: 77.70659 }, // Default location (San Francisco)
+            zoom: 5
+        });
+
+        // Initialize Directions Service and Renderer
+        directionsService = new google.maps.DirectionsService();
+        directionsRenderer = new google.maps.DirectionsRenderer();
+        directionsRenderer.setMap(map);
+
+        // Initialize Autocomplete for Source and Destination input fields
+        sourceAutocomplete = new google.maps.places.Autocomplete(document.getElementById('source'));
+        destAutocomplete = new google.maps.places.Autocomplete(document.getElementById('dest'));
+
+        // Add an event listener to the file input
+        document.getElementById('file').addEventListener('change', handleKMLFileUpload);
+    }
+
+    function calcRoute() {
+        var source = document.getElementById('source').value;
+        var dest = document.getElementById('dest').value;
+
+        if (source === "" || dest === "") {
+            alert("Please enter both source and destination.");
+            return;
+        }
+
+        // Request to calculate the route
+        let request = {
+            origin: source,
+            destination: dest,
+            travelMode: 'DRIVING' // Can be changed to 'WALKING', 'BICYCLING', or 'TRANSIT'
+        };
+
+        directionsService.route(request, function(result, status) {
+            if (status === "OK") {
+                directionsRenderer.setDirections(result);
+                // Store the route coordinates
+                routeCoordinates = extractCoordinates(result);
+            } else {
+                alert("Directions request failed due to " + status);
+            }
+        });
+    }
+
+    function extractCoordinates(result) {
+        let coordinates = [];
+        let legs = result.routes[0].legs;
+        for (let i = 0; i < legs.length; i++) {
+            let steps = legs[i].steps;
+            for (let j = 0; j < steps.length; j++) {
+                let path = steps[j].path;
+                for (let k = 0; k < path.length; k++) {
+                    coordinates.push({
+                        lat: path[k].lat(),
+                        lng: path[k].lng()
+                    });
+                }
+            }
+        }
+        return coordinates;
+    }
+
+    // Function to download KML from the plotted route coordinates
+    function downloadKML() {
+            if (routeCoordinates.length === 0) {
+                alert("No route to download.");
+                return;
+            }
+
+            let kmlHeader = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Directions Source to Destination</name>
+    <Style id="icon-1899-DB4436-nodesc-normal">
+      <IconStyle>
+        <color>ff3644db</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+        <hotSpot x="32" xunits="pixels" y="64" yunits="insetPixels"/>
+      </IconStyle>
+      <LabelStyle>
+        <scale>0</scale>
+      </LabelStyle>
+      <BalloonStyle>
+        <text><![CDATA[<h3>$[name]</h3>]]></text>
+      </BalloonStyle>
+    </Style>
+    <Style id="icon-1899-DB4436-nodesc-highlight">
+      <IconStyle>
+        <color>ff3644db</color>
+        <scale>1</scale>
+        <Icon>
+          <href>https://www.gstatic.com/mapspro/images/stock/503-wht-blank_maps.png</href>
+        </Icon>
+        <hotSpot x="32" xunits="pixels" y="64" yunits="insetPixels"/>
+      </IconStyle>
+      <LabelStyle>
+        <scale>1</scale>
+      </LabelStyle>
+      <BalloonStyle>
+        <text><![CDATA[<h3>$[name]</h3>]]></text>
+      </BalloonStyle>
+    </Style>
+    <StyleMap id="icon-1899-DB4436-nodesc">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#icon-1899-DB4436-nodesc-normal</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#icon-1899-DB4436-nodesc-highlight</styleUrl>
+      </Pair>
+    </StyleMap>
+    <Style id="line-1267FF-5000-nodesc-normal">
+      <LineStyle>
+        <color>ffff6712</color>
+        <width>5</width>
+      </LineStyle>
+      <BalloonStyle>
+        <text><![CDATA[<h3>$[name]</h3>]]></text>
+      </BalloonStyle>
+    </Style>
+    <Style id="line-1267FF-5000-nodesc-highlight">
+      <LineStyle>
+        <color>ffff6712</color>
+        <width>7.5</width>
+      </LineStyle>
+      <BalloonStyle>
+        <text><![CDATA[<h3>$[name]</h3>]]></text>
+      </BalloonStyle>
+    </Style>
+    <StyleMap id="line-1267FF-5000-nodesc">
+      <Pair>
+        <key>normal</key>
+        <styleUrl>#line-1267FF-5000-nodesc-normal</styleUrl>
+      </Pair>
+      <Pair>
+        <key>highlight</key>
+        <styleUrl>#line-1267FF-5000-nodesc-highlight</styleUrl>
+      </Pair>
+    </StyleMap>
+    <Placemark>
+      <name>Directions from Source to Destination</name>
+      <styleUrl>#line-1267FF-5000-nodesc</styleUrl>
+      <LineString>
+        <tessellate>1</tessellate>
+        <coordinates>`;
+
+            // Convert the routeCoordinates into the correct KML coordinate format (longitude,latitude,0)
+            let kmlCoordinates = routeCoordinates.map(coord => `${coord.lng},${coord.lat},0`).join("\n");
+
+            let kmlFooter = `</coordinates>
+      </LineString>
+    </Placemark>
+    <Placemark>
+      <name>Source</name>
+      <styleUrl>#icon-1899-DB4436-nodesc</styleUrl>
+      <Point>
+        <coordinates>`;
+
+            // First coordinate (starting point)
+            let firstCoordinate = routeCoordinates[0];
+            let kmlFirstPoint = `${firstCoordinate.lng},${firstCoordinate.lat},0`;
+
+            let kmlSecond = `</coordinates></Point></Placemark>
+    <Placemark>
+      <name>Destination</name>
+      <styleUrl>#icon-1899-DB4436-nodesc</styleUrl>
+      <Point>
+        <coordinates>`;
+
+            // Last coordinate (ending point)
+            let lastCoordinate = routeCoordinates[routeCoordinates.length - 1];  //defnition to get the points
+            let kmlSecondPoint = `${lastCoordinate.lng},${lastCoordinate.lat},0`;
+
+            let kmlFooterEnd = `</coordinates>
+      </Point>
+    </Placemark>
+  </Document>
+</kml>`;
+
+            // Combine all parts to form the full KML data
+            let kmlData = kmlHeader + "\n"+ kmlCoordinates +"\n"+ kmlFooter  + kmlFirstPoint + kmlSecond +kmlSecondPoint + kmlFooterEnd;
+
+            // Create a Blob with KML data and trigger the download
+            let blob = new Blob([kmlData], { type: 'application/vnd.google-earth.kml+xml' });
+            let link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'route.kml';
+            link.click();
+        }
+
+    // Handle KML file upload and plot it on the map
+    function handleKMLFileUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const kmlText = e.target.result;
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(kmlText, 'application/xml');
+                const coordinates = extractCoordinatesFromKML(xmlDoc);
+
+                // Remove the previous polyline if it exists
+                if (polyline) {
+                    polyline.setMap(null);
+                }
+
+                // Plot the extracted coordinates as a polyline
+                polyline = new google.maps.Polyline({
+                    path: coordinates,
+                    geodesic: true,
+                    strokeColor: '#FF0000',
+                    strokeOpacity: 1.0,
+                    strokeWeight: 2
+                });
+
+                polyline.setMap(map);
+
+                // Fit the map bounds to the polyline
+                const bounds = new google.maps.LatLngBounds();
+                coordinates.forEach(coord => {
+                    bounds.extend(new google.maps.LatLng(coord.lat, coord.lng));
+                });
+                map.fitBounds(bounds);  // Adjust the map view to the polyline's bounds
+            };
+            reader.readAsText(file);
+        }
+    }
+
+    // Extract coordinates from the KML document
+    function extractCoordinatesFromKML(xmlDoc) {
+        const coordinates = [];
+        const coordinateElements = xmlDoc.getElementsByTagName('coordinates');
+
+        for (let i = 0; i < coordinateElements.length-2; i++) {
+            const coordText = coordinateElements[i].textContent.trim();
+            const coordArray = coordText.split(/\s+/);
+
+            coordArray.forEach(function(coord) {
+                if (coord) {
+                    const parts = coord.split(',');
+                    const lon = parseFloat(parts[0]);
+                    const lat = parseFloat(parts[1]);
+                    coordinates.push({ lat: lat, lng: lon });
+                }
+            });
+        }
+
+        return coordinates;
+    }
+</script>
+</html>
